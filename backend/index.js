@@ -6,6 +6,12 @@ const { Server } = require('socket.io');
 const User = require('./models/User');
 require('dotenv').config();
 
+// Kafka & Redis Imports
+import KafkaConsumerService from './services/KafkaConsumerService.js';
+import KafkaProducerService from './services/KafkaProducerService.js';
+import RedisService from './services/RedisService.js';
+import FanoutManager from './utils/fanoutManager.js';
+
 // AI Notification Imports
 const NotificationScheduler = require('./services/NotificationScheduler');
 const ReminderScheduler = require('./services/ReminderScheduler');
@@ -33,6 +39,9 @@ const io = new Server(server, {
     },
     pingTimeout: 60000,
 });
+
+// Initialize Fanout Manager
+const fanoutManager = new FanoutManager(io);
 
 // Attach io to req for controllers
 app.use((req, res, next) => {
@@ -111,11 +120,15 @@ io.on('connection', async (socket) => {
 
     socket.on('join_channel', (channelId) => {
         socket.join(channelId);
+        // Register connection in fanout manager
+        fanoutManager.registerConnection(userId, socket.id, channelId, { userId, username: socket.handshake.query.username });
         console.log(`👤 User ${socket.id} joined channel ${channelId}`);
     });
 
     socket.on('disconnect', async () => {
         console.log('❌ User disconnected:', socket.id);
+        // Unregister from fanout manager
+        fanoutManager.unregisterConnection(userId, socket.id);
         if (userId) {
             try {
                 await User.findOneAndUpdate({ clerkId: userId }, { isOnline: false, lastSeen: new Date() });
@@ -143,38 +156,81 @@ const connectDB = async () => {
     }
 };
 
-connectDB().then(() => {
-    server.listen(PORT, () => {
-        console.log(`🚀 Server running on port ${PORT}`);
-        
-        // Initialize AI Notification Scheduler
-        try {
-            notificationScheduler = new NotificationScheduler();
-            notificationScheduler.initialize();
-            console.log('🤖 AI Notification Scheduler initialized');
-        } catch (error) {
-            console.error('⚠️ Error initializing notification scheduler:', error.message);
-            console.log('💡 Make sure GEMINI_API_KEY is set in .env file');
-        }
+// Initialize Kafka and Redis
+const initializeKafkaAndRedis = async () => {
+    try {
+        // Connect to Redis
+        await RedisService.connect();
+        console.log('📦 Connected to Redis');
 
-        // Initialize Reminder Scheduler
-        try {
-            reminderScheduler = new ReminderScheduler();
-            reminderScheduler.initialize();
-            console.log('🔔 Reminder Scheduler initialized');
-        } catch (error) {
-            console.error('⚠️ Error initializing reminder scheduler:', error.message);
-        }
+        // Connect Kafka Producer
+        await KafkaProducerService.connect();
+        console.log('📨 Kafka Producer connected');
+
+        // Connect Kafka Consumer and start all consumers
+        await KafkaConsumerService.connect(io);
+        await KafkaConsumerService.startAllConsumers();
+        console.log('📥 Kafka Consumers started');
+
+        return true;
+    } catch (err) {
+        console.error('⚠️ Error initializing Kafka/Redis:', err.message);
+        return false;
+    }
+};
+
+connectDB().then(() => {
+    // Initialize Kafka and Redis first
+    initializeKafkaAndRedis().then((kafkaReady) => {
+        server.listen(PORT, () => {
+            console.log(`🚀 Server running on port ${PORT}`);
+            
+            if (kafkaReady) {
+                console.log('✅ Kafka & Redis infrastructure ready');
+            }
+            
+            // Initialize AI Notification Scheduler
+            try {
+                notificationScheduler = new NotificationScheduler();
+                notificationScheduler.initialize();
+                console.log('🤖 AI Notification Scheduler initialized');
+            } catch (error) {
+                console.error('⚠️ Error initializing notification scheduler:', error.message);
+                console.log('💡 Make sure GEMINI_API_KEY is set in .env file');
+            }
+
+            // Initialize Reminder Scheduler
+            try {
+                reminderScheduler = new ReminderScheduler();
+                reminderScheduler.initialize();
+                console.log('🔔 Reminder Scheduler initialized');
+            } catch (error) {
+                console.error('⚠️ Error initializing reminder scheduler:', error.message);
+            }
+        });
     });
 });
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
+    console.log('\n⏹️  Shutting down gracefully...');
+    
     if (notificationScheduler) {
         notificationScheduler.stop();
     }
     if (reminderScheduler) {
         reminderScheduler.stop();
     }
+    
+    // Disconnect Kafka and Redis
+    try {
+        await KafkaConsumerService.disconnectAll();
+        await KafkaProducerService.disconnect();
+        await RedisService.disconnect();
+        console.log('✅ All services disconnected');
+    } catch (err) {
+        console.error('Error during shutdown:', err);
+    }
+    
     process.exit(0);
 });

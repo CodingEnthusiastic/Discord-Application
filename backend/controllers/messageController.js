@@ -4,6 +4,8 @@ const User = require('../models/User');
 const { getEmbedding } = require('../services/aiService');
 const AutoModService = require('../services/AutoModService');
 const mongoose = require('mongoose');
+import KafkaProducerService from '../services/KafkaProducerService.js';
+import RedisService from '../services/RedisService.js';
 
 const sendMessage = async (req, res) => {
     try {
@@ -72,6 +74,13 @@ const sendMessage = async (req, res) => {
 
         await newMessage.save();
 
+        // Publish message event to Kafka
+        try {
+            await KafkaProducerService.publishMessage(newMessage.toObject());
+        } catch (kafkaErr) {
+            console.error('Failed to publish to Kafka:', kafkaErr);
+        }
+
         // Log moderation action if needed
         if (moderationResult && moderationResult.action !== 'allow') {
             await AutoModService.processModerationAction(
@@ -117,7 +126,19 @@ const getMessages = async (req, res) => {
         const { channelId } = req.params;
         if (!channelId) return res.status(400).json({ message: "Channel ID required" });
 
-        const messages = await Message.find({ channel: channelId }).sort({ createdAt: 1 });
+        // Try to get from Redis cache first
+        let messages = await RedisService.getMessagesByChannel(channelId, 50);
+        
+        if (!messages || messages.length === 0) {
+            // If not in cache, fetch from DB
+            messages = await Message.find({ channel: channelId }).sort({ createdAt: 1 });
+            
+            // Cache the messages
+            for (const msg of messages) {
+                await RedisService.cacheMessage(channelId, msg.toObject());
+            }
+        }
+
         res.status(200).json(messages);
     } catch (err) {
         console.error("Error fetching messages:", err);
