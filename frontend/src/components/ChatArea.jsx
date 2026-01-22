@@ -17,6 +17,10 @@ export const ChatArea = ({ channelId, conversationId, channelName = 'general', o
     const [activeProfile, setActiveProfile] = useState(null);
     const [activeReactionId, setActiveReactionId] = useState(null); // Track active picker
     const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [pinsOpen, setPinsOpen] = useState(false);
+    const [membersOpen, setMembersOpen] = useState(false);
+    const [inboxOpen, setInboxOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const [justJumped, setJustJumped] = useState(false);
 
@@ -125,9 +129,45 @@ export const ChatArea = ({ channelId, conversationId, channelName = 'general', o
                 </div>
 
                 <div className="flex items-center space-x-4 text-gray-400">
-                    <Bell className="w-5 h-5 cursor-pointer hover:text-gray-200" />
-                    <Pin className="w-5 h-5 cursor-pointer hover:text-gray-200" />
-                    <Users className="w-5 h-5 cursor-pointer hover:text-gray-200" />
+                    <button
+                        onClick={() => setNotificationsOpen(!notificationsOpen)}
+                        title="Notifications"
+                        className="relative w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors"
+                    >
+                        <Bell className="w-5 h-5" />
+                        {notificationsOpen && (
+                            <div className="absolute top-8 right-0 bg-[#18191c] border border-white/10 rounded-lg p-3 w-64 shadow-xl z-50">
+                                <div className="text-white text-sm font-semibold mb-2">Notifications</div>
+                                <div className="text-gray-400 text-xs">No new notifications</div>
+                            </div>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setPinsOpen(!pinsOpen)}
+                        title="Pinned Messages"
+                        className="relative w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors"
+                    >
+                        <Pin className="w-5 h-5" />
+                        {pinsOpen && (
+                            <div className="absolute top-8 right-0 bg-[#18191c] border border-white/10 rounded-lg p-3 w-64 shadow-xl z-50">
+                                <div className="text-white text-sm font-semibold mb-2">Pinned Messages</div>
+                                <div className="text-gray-400 text-xs">No pinned messages in this channel</div>
+                            </div>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => setMembersOpen(!membersOpen)}
+                        title="Members"
+                        className="relative w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors"
+                    >
+                        <Users className="w-5 h-5" />
+                        {membersOpen && (
+                            <div className="absolute top-8 -right-20 bg-[#18191c] border border-white/10 rounded-lg p-3 w-48 shadow-xl z-50">
+                                <div className="text-white text-sm font-semibold mb-2">Members</div>
+                                <div className="text-gray-400 text-xs">Loading members...</div>
+                            </div>
+                        )}
+                    </button>
                     {channelId && serverId && (
                         <button
                             onClick={() => setSummaryModalOpen(true)}
@@ -144,8 +184,26 @@ export const ChatArea = ({ channelId, conversationId, channelName = 'general', o
                             onChannelSelect={onChannelSelect}
                         />
                     </div>
-                    <Inbox className="w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors" />
-                    <HelpCircle className="w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors" />
+                    <button
+                        onClick={() => setInboxOpen(!inboxOpen)}
+                        title="Inbox"
+                        className="relative w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors"
+                    >
+                        <Inbox className="w-5 h-5" />
+                        {inboxOpen && (
+                            <div className="absolute top-8 right-0 bg-[#18191c] border border-white/10 rounded-lg p-3 w-64 shadow-xl z-50">
+                                <div className="text-white text-sm font-semibold mb-2">Inbox</div>
+                                <div className="text-gray-400 text-xs">You're all caught up!</div>
+                            </div>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => alert('Help & Support - Coming Soon')}
+                        title="Help & Support"
+                        className="w-5 h-5 cursor-pointer hover:text-gray-200 transition-colors"
+                    >
+                        <HelpCircle className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
 
@@ -321,7 +379,12 @@ export const ChatArea = ({ channelId, conversationId, channelName = 'general', o
             {/* Input Area */}
             <div className="px-3 py-1 bg-transparent flex-shrink-0">
                 <form onSubmit={handleSendMessage} className="bg-black/30 backdrop-blur-md border border-white/10 rounded-2xl p-3 flex items-center shadow-lg relative transition-colors focus-within:border-white/20 focus-within:bg-black/40">
-                    <button type="button" className="text-gray-400 hover:text-gray-200 mr-3 bg-white/10 rounded-full p-1 h-6 w-6 flex items-center justify-center shrink-0 transition-colors">
+                    <button 
+                        type="button" 
+                        onClick={() => alert('File Upload - Coming Soon')}
+                        className="text-gray-400 hover:text-gray-200 mr-3 bg-white/10 hover:bg-white/20 rounded-full p-1 h-6 w-6 flex items-center justify-center shrink-0 transition-colors"
+                        title="Upload File"
+                    >
                         <span className="font-bold text-xs pb-0.5">+</span>
                     </button>
                     <input
@@ -332,7 +395,7 @@ export const ChatArea = ({ channelId, conversationId, channelName = 'general', o
                         className="bg-transparent flex-1 text-white  outline-none placeholder-gray-500 text-sm md:text-base py-1"
                     />
                     <div className="flex items-center space-x-3 ml-2 text-gray-400 shrink-0">
-                        <Send className={`w-5 h-5 cursor-pointer transition-colors ${input.trim() ? 'text-[#5865F2]' : 'hover:text-white'}`} onClick={handleSendMessage} />
+                        <Send className={`w-5 h-5 cursor-pointer transition-colors ${input.trim() ? 'text-[#5865F2] hover:text-blue-400' : 'hover:text-white'}`} onClick={handleSendMessage} title="Send Message" />
                     </div>
                 </form>
             </div>
