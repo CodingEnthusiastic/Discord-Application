@@ -1,5 +1,5 @@
 // services/KafkaProducerService.js
-import { Kafka } from 'kafkajs';
+const { Kafka } = require('kafkajs');
 
 const KAFKA_BROKERS = (process.env.KAFKA_BROKERS || 'localhost:9092').split(',');
 const KAFKA_CLIENT_ID = process.env.KAFKA_CLIENT_ID || 'discord-backend';
@@ -18,13 +18,24 @@ class KafkaProducerService {
             brokers: KAFKA_BROKERS,
             retry: {
                 initialRetryTime: 100,
-                retries: 8,
+                retries: 3,
+                maxRetryTime: 3000,
             },
+            connectionTimeout: 3000,
+            requestTimeout: 3000,
         });
 
         this.producer = this.kafka.producer();
-        await this.producer.connect();
-        console.log('Kafka Producer connected');
+        try {
+            await Promise.race([
+                this.producer.connect(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Kafka connection timeout')), 3000))
+            ]);
+            console.log('Kafka Producer connected');
+        } catch (err) {
+            console.warn('⚠️ Kafka producer connection failed - continuing without Kafka:', err.message);
+            this.producer = null;
+        }
         return this.producer;
     }
 
@@ -128,4 +139,4 @@ class KafkaProducerService {
     }
 }
 
-export default new KafkaProducerService();
+module.exports = new KafkaProducerService();

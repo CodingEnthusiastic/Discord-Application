@@ -116,4 +116,4 @@ class FanoutManager {
     }
 }
 
-export default FanoutManager;
+module.exports = FanoutManager;

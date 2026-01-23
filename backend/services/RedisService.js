@@ -1,5 +1,5 @@
 // services/RedisService.js
-import redis from 'redis';
+const redis = require('redis');
 
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = process.env.REDIS_PORT || 6379;
@@ -16,14 +16,31 @@ class RedisService {
             host: REDIS_HOST,
             port: REDIS_PORT,
             socket: {
-                reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+                reconnectStrategy: (retries) => {
+                    if (retries > 1) return new Error('Max reconnection attempts');
+                    return Math.min(retries * 50, 500);
+                },
+                connectTimeout: 2000,
+                noDelay: true
             }
         });
 
-        this.client.on('error', (err) => console.error('Redis Client Error', err));
-        this.client.on('connect', () => console.log('Redis connected'));
+        this.client.on('error', (err) => {
+            if (err.code !== 'ECONNREFUSED') {
+                console.error('Redis Client Error', err);
+            }
+        });
+        this.client.on('connect', () => console.log('✅ Redis connected'));
 
-        await this.client.connect();
+        try {
+            await Promise.race([
+                this.client.connect(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Redis connection timeout')), 2000))
+            ]);
+        } catch (err) {
+            console.warn('⚠️ Redis unavailable - continuing in development mode');
+            this.client = null;
+        }
         return this.client;
     }
 
@@ -151,4 +168,4 @@ class RedisService {
     }
 }
 
-export default new RedisService();
+module.exports = new RedisService();

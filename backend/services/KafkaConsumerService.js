@@ -1,6 +1,6 @@
 // services/KafkaConsumerService.js
-import { Kafka } from 'kafkajs';
-import RedisService from './RedisService.js';
+const { Kafka } = require('kafkajs');
+const RedisService = require('./RedisService.js');
 
 const KAFKA_BROKERS = (process.env.KAFKA_BROKERS || 'localhost:9092').split(',');
 const KAFKA_CLIENT_ID = process.env.KAFKA_CLIENT_ID || 'discord-backend';
@@ -21,8 +21,11 @@ class KafkaConsumerService {
             brokers: KAFKA_BROKERS,
             retry: {
                 initialRetryTime: 100,
-                retries: 8,
+                retries: 3,
+                maxRetryTime: 3000,
             },
+            connectionTimeout: 3000,
+            requestTimeout: 3000,
         });
 
         console.log('Kafka Consumer initialized');
@@ -34,7 +37,10 @@ class KafkaConsumerService {
             const consumer = this.kafka.consumer({ groupId: 'messages-group' });
             this.consumers['messages'] = consumer;
 
-            await consumer.connect();
+            await Promise.race([
+                consumer.connect(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Kafka consumer connection timeout')), 3000))
+            ]);
             await consumer.subscribe({ topic: 'messages', fromBeginning: false });
 
             await consumer.run({
@@ -62,9 +68,9 @@ class KafkaConsumerService {
                 },
             });
 
-            console.log('Messages consumer started');
+            console.log('✅ Messages consumer started');
         } catch (err) {
-            console.error('Failed to start messages consumer:', err);
+            console.warn('⚠️ Messages consumer unavailable:', err.message);
         }
     }
 
@@ -74,7 +80,10 @@ class KafkaConsumerService {
             const consumer = this.kafka.consumer({ groupId: 'activity-group' });
             this.consumers['activity'] = consumer;
 
-            await consumer.connect();
+            await Promise.race([
+                consumer.connect(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Kafka consumer connection timeout')), 3000))
+            ]);
             await consumer.subscribe({ topic: 'user-activity', fromBeginning: false });
 
             await consumer.run({
@@ -105,9 +114,9 @@ class KafkaConsumerService {
                 },
             });
 
-            console.log('Activity consumer started');
+            console.log('✅ Activity consumer started');
         } catch (err) {
-            console.error('Failed to start activity consumer:', err);
+            console.warn('⚠️ Activity consumer unavailable:', err.message);
         }
     }
 
@@ -117,7 +126,10 @@ class KafkaConsumerService {
             const consumer = this.kafka.consumer({ groupId: 'reactions-group' });
             this.consumers['reactions'] = consumer;
 
-            await consumer.connect();
+            await Promise.race([
+                consumer.connect(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Kafka consumer connection timeout')), 3000))
+            ]);
             await consumer.subscribe({ topic: 'reactions', fromBeginning: false });
 
             await consumer.run({
@@ -139,9 +151,9 @@ class KafkaConsumerService {
                 },
             });
 
-            console.log('Reactions consumer started');
+            console.log('✅ Reactions consumer started');
         } catch (err) {
-            console.error('Failed to start reactions consumer:', err);
+            console.warn('⚠️ Reactions consumer unavailable:', err.message);
         }
     }
 
@@ -151,7 +163,10 @@ class KafkaConsumerService {
             const consumer = this.kafka.consumer({ groupId: 'notifications-group' });
             this.consumers['notifications'] = consumer;
 
-            await consumer.connect();
+            await Promise.race([
+                consumer.connect(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Kafka consumer connection timeout')), 3000))
+            ]);
             await consumer.subscribe({ topic: 'notifications', fromBeginning: false });
 
             await consumer.run({
@@ -172,18 +187,27 @@ class KafkaConsumerService {
                 },
             });
 
-            console.log('Notifications consumer started');
+            console.log('✅ Notifications consumer started');
         } catch (err) {
-            console.error('Failed to start notifications consumer:', err);
+            console.warn('⚠️ Notifications consumer unavailable:', err.message);
         }
     }
 
     // Start all consumers
     async startAllConsumers() {
-        await this.startMessagesConsumer();
-        await this.startActivityConsumer();
-        await this.startReactionsConsumer();
-        await this.startNotificationsConsumer();
+        try {
+            await Promise.race([
+                Promise.all([
+                    this.startMessagesConsumer(),
+                    this.startActivityConsumer(),
+                    this.startReactionsConsumer(),
+                    this.startNotificationsConsumer()
+                ]),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Consumers startup timeout')), 5000))
+            ]);
+        } catch (err) {
+            console.warn('⚠️ Some Kafka consumers failed to start:', err.message);
+        }
     }
 
     // Disconnect all consumers
@@ -200,4 +224,4 @@ class KafkaConsumerService {
     }
 }
 
-export default new KafkaConsumerService();
+module.exports = new KafkaConsumerService();

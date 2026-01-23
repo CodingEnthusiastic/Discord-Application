@@ -4,8 +4,8 @@ const User = require('../models/User');
 const { getEmbedding } = require('../services/aiService');
 const AutoModService = require('../services/AutoModService');
 const mongoose = require('mongoose');
-import KafkaProducerService from '../services/KafkaProducerService.js';
-import RedisService from '../services/RedisService.js';
+const KafkaProducerService = require('../services/KafkaProducerService.js');
+const RedisService = require('../services/RedisService.js');
 
 const sendMessage = async (req, res) => {
     try {

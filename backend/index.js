@@ -7,10 +7,10 @@ const User = require('./models/User');
 require('dotenv').config();
 
 // Kafka & Redis Imports
-import KafkaConsumerService from './services/KafkaConsumerService.js';
-import KafkaProducerService from './services/KafkaProducerService.js';
-import RedisService from './services/RedisService.js';
-import FanoutManager from './utils/fanoutManager.js';
+const KafkaConsumerService = require('./services/KafkaConsumerService.js');
+const KafkaProducerService = require('./services/KafkaProducerService.js');
+const RedisService = require('./services/RedisService.js');
+const FanoutManager = require('./utils/fanoutManager.js');
 
 // AI Notification Imports
 const NotificationScheduler = require('./services/NotificationScheduler');

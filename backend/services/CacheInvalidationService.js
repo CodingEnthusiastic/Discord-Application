@@ -1,5 +1,5 @@
 // services/CacheInvalidationService.js
-import RedisService from './RedisService.js';
+const RedisService = require('./RedisService.js');
 
 class CacheInvalidationService {
     // Invalidate channel messages cache
@@ -95,4 +95,4 @@ class CacheInvalidationService {
     }
 }
 
-export default new CacheInvalidationService();
+module.exports = new CacheInvalidationService();
