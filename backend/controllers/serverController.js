@@ -20,13 +20,18 @@ exports.createServer = async (req, res) => {
             server: savedServer._id
         });
 
-        await defaultChannel.save();
+        const savedChannel = await defaultChannel.save();
 
-        // Link channel to server
-        savedServer.channels.push(defaultChannel._id);
-        await savedServer.save();
+        // Link channel to server using updateOne (faster than findByIdAndUpdate)
+        await Server.updateOne({ _id: savedServer._id }, {
+            $push: { channels: savedChannel._id }
+        });
 
-        res.status(201).json(savedServer);
+        // Return response immediately with channel info
+        res.status(201).json({
+            ...savedServer.toObject(),
+            channels: [savedChannel]
+        });
     } catch (error) {
         console.error('Error creating server:', error);
         res.status(500).json({ error: 'Failed to create server' });

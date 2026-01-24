@@ -4,9 +4,8 @@ const Server = require('../models/Server');
 exports.createChannel = async (req, res) => {
     try {
         const { name, type, category, serverId, userId } = req.body;
-        // console.log('Creating channel with:', { name, type, category, serverId, userId });
 
-        // Permission Check
+        // Permission Check - get server first
         const server = await Server.findById(serverId);
         if (!server) {
             console.log('Server not found');
@@ -27,13 +26,13 @@ exports.createChannel = async (req, res) => {
         });
 
         const savedChannel = await newChannel.save();
-        console.log('Channel saved:', savedChannel);
-
-        // Add to server's channel list
-        await Server.findByIdAndUpdate(serverId, {
+        
+        // Use updateOne instead of findByIdAndUpdate (faster)
+        await Server.updateOne({ _id: serverId }, {
             $push: { channels: savedChannel._id }
         });
 
+        console.log('Channel created:', savedChannel);
         res.status(201).json(savedChannel);
     } catch (error) {
         console.error('Error creating channel FULL STACK:', error);

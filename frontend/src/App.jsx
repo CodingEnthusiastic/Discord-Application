@@ -7,24 +7,6 @@ function App()
     <>
       <LandingPage/>
       
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     </>
   );
 }
