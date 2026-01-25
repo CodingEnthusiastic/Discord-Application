@@ -2,6 +2,9 @@
 
 ## Setup Instructions
 
+### Architecture 
+https://drive.google.com/drive/folders/11T6sKqv8jCLWKQmg0vznQg_QEMaBjgnV?usp=sharing
+
 ### Backend Setup
 
 1. Navigate to the backend folder:
